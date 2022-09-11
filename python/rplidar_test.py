@@ -1,6 +1,6 @@
 
 from math import cos, sin, pi, floor
-from adafruit_rplidar import RPLidar
+from rplidar import RPLidar
 import numpy as np
 import cv2
 
@@ -8,7 +8,7 @@ blank_img = np.zeros(shape=(400,400,3)) #Erstellt dreidimensionales Array mit Nu
 width, height, _ = blank_img.shape
 
 PORT_NAME = '/dev/ttyUSB0'
-lidar = RPLidar(None, PORT_NAME)    #Verbindungsinilialisierung mit RPLidar
+lidar = RPLidar(PORT_NAME)    #Verbindungsinilialisierung mit RPLidar
            
 scan_data =[0]*360  #Array für Messwerte des Lidar-Sensors
 

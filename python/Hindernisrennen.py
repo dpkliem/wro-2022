@@ -18,18 +18,20 @@ upper_red1 = np.array([180, 255, 255])
 low_H2 = 0
 high_H2 = 5
 
+offset_angle = -35
+
 #Deklaration der Verbindungen mit elektromechanischen Komponenten
 i2c = board.I2C() 
 sensor = adafruit_tcs34725.TCS34725(i2c)    #Initialisierung der I2C-Verbinung mit Farbsensor
 factory = PiGPIOFactory()
 button = Button(20,False)                   #GPIO-Pin für Schalter            
-motor_1 = Motor(forward = 13,backward = 6)  #GPIO-Pins zur Ansteuerung der Motoren
+motor_1 = Motor(forward = 6, backward = 13)  #GPIO-Pins zur Ansteuerung der Motoren
 fahrtrichtung = 0                           #Variable für Fahrtrichtung
 blue_color = (4,25,25)                      #Farbwert für blaue Linie
-servo = AngularServo(23,min_angle=-180,max_angle=180,min_pulse_width=5/10000,max_pulse_width=25/10000,frame_width=20/1000,pin_factory=factory)  #Initialisierung des Servos
+servo = AngularServo(12,min_angle=-180,max_angle=180,min_pulse_width=5/10000,max_pulse_width=25/10000,frame_width=20/1000,pin_factory=factory)  #Initialisierung des Servos
 
 #Verbindung mit Kamera
-cap = cv2.VideoCapture(0)   
+cap = cv2.VideoCapture(-1)   
 
 #Festlegung Bildauflösung Kamera
 ret = cap.set(3,320)
@@ -605,8 +607,32 @@ def servo_steering(angle):
         angle (float): Einschlagwinkel der Räder
     """
     global start2
-    sangle = int(servo.angle)
-    if angle < 0:
+    global offset_angle
+    if angle >  0:  #Rechtskurve?
+        winkel = int((-90 + abs(angle)))
+        print(winkel)
+        if abs(winkel) <= 75:
+            servo.angle = offset_angle/2.57 + winkel
+        else:
+            if start2 == 0:
+                start2 = time.time()
+            stop2 = time.time()
+            if start2 != 0 and stop2 - start2 >= 0.35:
+                servo.angle = offset_angle +  winkel/2.57
+    elif angle < 0:
+        winkel = int((90 - abs(angle)))
+        print(winkel)
+        if abs(winkel) <= 75:
+            servo.angle = offset_angle/2.57 + winkel
+        else:
+            if start2 == 0:
+                start2 = time.time()
+            stop2 = time.time()
+            if start2 != 0 and stop2 - start2 >= 0.35:
+                servo.angle = offset_angle + winkel/2.57
+    else:
+        servo.angle = offset_angle
+    """if angle < 0:
         winkel = int((90 - abs(angle))*1.2)
         if abs(sangle - winkel) > 50:
             forward(1)
@@ -647,7 +673,7 @@ def servo_steering(angle):
             start2 = 0
             servo.angle = winkel
     else:
-        servo.angle = 0
+        servo.angle = 0"""
 
 def count_r ():
     """Gibt True zurück, wenn 3 Runden gefahren wurden
@@ -675,7 +701,7 @@ def count_r ():
 #Warten auf Umlegen des Schalters 
 button.wait_for_press()
 
-servo.angle = 0
+servo.angle = offset_angle
 runden = 0
 start1 = 0
 start2 = 0
@@ -683,18 +709,22 @@ start3 = 0
 
 #Schleife mit Bildverarbeitung, Ermittlung des Steuerwinkels, Auswertung der Daten des Farbsensors und Steuerung der Motoren und des Servos
 while True:
-    ret, frame = cap.read()
-    frame = cv2.rotate(frame, cv2.ROTATE_180)
-    roi = create_roi(frame)
-    l = detected_lane(roi)
-    angle = calculate_steering_angle(roi, l)
-    servo_steering(angle)
-    img2 = depict_heading_line(roi, angle)
-    img = display_lane(img2,l)
+    try:
+        ret, frame = cap.read()
+        #frame = cv2.rotate(frame, cv2.ROTATE_180)
+        roi = create_roi(frame)
+        l = detected_lane(roi)
+        angle = calculate_steering_angle(roi, l)
+        #print(angle)
+        servo_steering(angle)
+        img2 = depict_heading_line(roi, angle)
+        img = display_lane(img2,l)
+    except OverflowError:
+        continue
     cv2.imshow('frame', img)
-    forward(0.5)
+    forward(0.35)
     count_r()
-    print(runden)
+    #print(runden)
     if count_r():   #Abbruch, wenn drei Runden gefahren
         if start3 == 0:
             start3 = time.time()
